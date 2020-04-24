@@ -3,7 +3,9 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Patch iBSS/iBEC - TetheredDowngrade</title>
+        <title>TetheredDowngrade</title>
+        
+        <meta name="robots" content="noindex" />
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -194,6 +196,97 @@ In short, what we are interested in is: Bootrom -&gt; iBSS  -&gt; iBEC -&gt; Ker
 <li>@Ralph0045 and @mcg29_ for their dualboot guide</li>
 <li>@mosk_i for his fork of futurerestore and ra1nsn0w</li>
 </ul>
+<h1><a class="header" href="#patch-asr" id="patch-asr">Patch ASR</a></h1>
+<p>What we are insterested in now is patching ASR. 
+Iphonewiki says that asr <a href="https://www.theiphonewiki.com/wiki/ASR">&quot;works by writing the rootfs image to the actual system drive (ASR RESTORE), then checksums it. (ASR VERIFY)&quot;</a>.
+So now our task is to patch it.</p>
+<hr />
+<p>First thing we're goint ot do is extract ASR from restore ramdisk, check the name of restore ramdisk for your device and correct version on iphonewiki:</p>
+<ul>
+<li>
+<p>Decrypting ramdisk: <code>./img4 -i pathToRestoreRamdisk PathToSaveDecryptedRamdisk</code></p>
+</li>
+<li>
+<p>Double click at ramdisk to monunt it and copy asr from /usr/sbin/ to your working location.
+Patching asr was the first think where I had to think for a little longer, although there may be different ways for solving this puzzle, this is the way that worked for me:
+<em>Everything done in hopper, but IDA should work in simmilar way</em></p>
+</li>
+<li>
+<p>Find string &quot;Image failed&quot; and reference to it
+<img src="./image/2020-04-23/1.png" alt="" /></p>
+</li>
+<li>
+<p>We see 3 lines, the that we are insterested in is the third one. Follow it to where it's comming from.<img src="./image/2020-04-23/2.png" alt="" /></p>
+</li>
+<li>
+<p>Change the view to see it's addres.<img src="./image/2020-04-23/3.png" alt="" /></p>
+</li>
+<li>
+<p>We need to calculate the difference between adress of this instruction and adress of function &quot;Image passed&quot; string
+<img src="./image/2020-04-23/4.png" alt="" /></p>
+</li>
+<li>
+<p>Now all we need to do is modify the original instuction with our modified one and save new binary.<img src="./image/2020-04-23/5.png" alt="" /></p>
+</li>
+<li>
+<p>You can confirm that everything is correct by following green line.
+<img src="./image/2020-04-23/6.png" alt="" />
+<img src="./image/2020-04-23/7.png" alt="" />
+It's time to put binary back, let's resize ramdisk a little bit to make it fit.</p>
+</li>
+<li>
+<p>Resizing ramdisk: <code>hdiutil resize -size 50m ./rd.dmg</code>
+Now for the sake of god we need to resign new binary with original entitlements:</p>
+</li>
+<li>
+<p>Extract original entitlements: <code>ldid2 -e ASR &gt; asr.xml</code></p>
+</li>
+<li>
+<p>Replace original binary with patched one and sign it back: <code>ldid2 -S -ASR.xml asr</code></p>
+</li>
+</ul>
+<h1><a class="header" href="#patch-amfi" id="patch-amfi">Patch AMFI</a></h1>
+<p><em>Disclaimer: I know that there was kernel64patcher released, I just haven't time to test it yet so I'll update this guide when I confirm it's working</em></p>
+<p>To apply necessary kernelpatches you can easily use ra1nsn0w to make all work for you. I plan dive deeply in given patches in next post somewhere in near future to explain how exactly they work.</p>
+<hr />
+<p>For this part I recommend you following <a href="https://dualbootfun.github.io/dualboot/making-ramdisk.html">this guide</a> of <a href="https://twitter.com/Ralph0045">@Ralph0045</a> and <a href="https://twitter.com/mcg29_">@mcg29_</a>. They made really great job and I could learn many things from their guide!</p>
+<hr />
+<p>Alternatively you can do It as I did it:</p>
+<ul>
+<li>Download and install <a href="https://github.com/MatthewPierson/ra1nsn0w">matthew's fork of ra1nsn0w</a></li>
+<li>put your device in dfu mode: <code>ipwndfu -p</code></li>
+<li>remove sigchecks: <code>python2.7 rmsigchks.py</code></li>
+<li>start wikiproxy if needed: <code>wikiproxy.py</code></li>
+<li>run following command to get your kernel patched: <code>ra1nsn0w -t *.shsh2 /path/to/your/restore.ipsw --kernel-save ./kern.dump --sn0wsn0w</code> </li>
+</ul>
+<hr />
+<p>Later you need to change type of dumped kernel from krnl to rkrn:</p>
+<ul>
+<li>Changing type: <code>img4 -i kern.dump -o rkrn.patched -T rkrn</code>
+Put it back to ipsw folder and replace original one with this.</li>
+</ul>
+<p>What was also hinted by <a href="https://twitter.com/ra9_baris">rA9</a> is to create folder called restore inside IPSW and put kernelcache inside. Then in BuildManifest.plist edit patch of RestoreKernelCache to &quot;restore/kernel.release.correctnumberhere&quot;</p>
+<h1><a class="header" href="#restore" id="restore">Restore</a></h1>
+<p>Restoration process is simple:</p>
+<ul>
+<li>Put device in dfu and remove sigchecks</li>
+<li>Pass iBSS: <code>irecovery -f iBSS</code></li>
+<li>Pass iBEC: <code>irecovery -f iBEC</code></li>
+</ul>
+<p>Now you can do actuall restore, I used the same futurerestore that <a href="https://github.com/MatthewPierson/Vieux/tree/master/resources/bin">Matthew has used in Vieux</a> - it has sigchecks disabled:</p>
+<ul>
+<li>restore: <code>futurerestore -t *.shsh -s path/to/sep -m aliteks10.3.3otamanifest -b path/to/baseband -p aliteks10.3.3otamanifest /path/to/restore.ipsw</code></li>
+</ul>
+<h1><a class="header" href="#boot" id="boot">Boot</a></h1>
+<p>When done you can simply boot it with ra1nsn0w, I know you can do it without my help ;) </p>
+<p>Additionally you can play with boot images, here's some clues:</p>
+<ul>
+<li>Create raw image from png: <code>./ibootim logo.png logo.raw</code></li>
+<li>Create im4p with type logo and give it some description - I gave it the same as original: <code>img4tool -c applelogo.im4p -t logo -d &quot;EmbeddedImages-73.220.6&quot; logo.raw</code></li>
+<li>Create img4 with previously created im4p and  as im4m use your fake blob: <code>img4tool -p applelogo.im4p -c img.img4 -s ticker.shsh2</code></li>
+<li>Send it to device: <code>irecovery -f img.4</code></li>
+<li>Set it: <code>irecovery -c &quot;setpicture 1&quot;</code></li>
+</ul>
 
                     </main>
 
@@ -201,10 +294,6 @@ In short, what we are interested in is: Bootrom -&gt; iBSS  -&gt; iBEC -&gt; Ker
                         <!-- Mobile navigation buttons -->
                         
 
-                        
-                            <a rel="next" href="chapter_2.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -215,10 +304,6 @@ In short, what we are interested in is: Bootrom -&gt; iBSS  -&gt; iBEC -&gt; Ker
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
 
-                
-                    <a rel="next" href="chapter_2.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
                 
             </nav>
 
@@ -266,6 +351,14 @@ In short, what we are interested in is: Bootrom -&gt; iBSS  -&gt; iBEC -&gt; Ker
         <!-- Custom JS scripts -->
         
 
+        
+        
+        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+        
         
 
     </body>

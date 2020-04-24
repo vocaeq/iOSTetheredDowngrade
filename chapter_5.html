@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Patch iBSS/iBEC - TetheredDowngrade</title>
+        <title>Boot - TetheredDowngrade</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> Patch iBSS/iBEC</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> Patch ASR</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> Patch AMFI</a></li><li class="chapter-item expanded "><a href="chapter_4.html"><strong aria-hidden="true">4.</strong> Restore</a></li><li class="chapter-item expanded "><a href="chapter_5.html"><strong aria-hidden="true">5.</strong> Boot</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> Patch iBSS/iBEC</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> Patch ASR</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> Patch AMFI</a></li><li class="chapter-item expanded "><a href="chapter_4.html"><strong aria-hidden="true">4.</strong> Restore</a></li><li class="chapter-item expanded "><a href="chapter_5.html" class="active"><strong aria-hidden="true">5.</strong> Boot</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,52 +147,15 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#patching-ibecibss" id="patching-ibecibss">Patching iBEC/iBSS</a></h1>
-<p>First thing you need to do in order to boot unsigned firmware without previously saved blobs is obviously patch iOS bootchain. 
-For more in-depth information how all process works I recommend you watching Tihmstar's talk from 33c3:
-<a href="https://media.ccc.de/v/33c3-7888-downgrading_ios_from_past_to_present">Downgrading iOS from past to present</a>
-In short, what we are interested in is: Bootrom -&gt; iBSS  -&gt; iBEC -&gt; Kernel</p>
-<hr />
-<p>First goes iBSS and iBEC: </p>
+                        <h1><a class="header" href="#boot" id="boot">Boot</a></h1>
+<p>When done you can simply boot it with ra1nsn0w, I know you can do it without my help ;) </p>
+<p>Additionally you can play with boot images, here's some clues:</p>
 <ul>
-<li>Decrypting iBSS: <code>img4tool -e --iv &quot;paste iv here, you can find correct online&quot; --key &quot;paste key here&quot; -o iBSS.raw copiediBSS.im4p</code></li>
-<li>Decrypting iBSS: <code>img4tool -e --iv &quot;paste iv here&quot; --key &quot;paste key here&quot; -o iBEC copiediBEC.im4p</code></li>
-</ul>
-<p>In next step we patch it using Tihmstar's iBoot64Patcher:</p>
-<ul>
-<li>Patch iBSS: <code>iBoot64Patcher iBSS.raw iBSS.prepatched</code></li>
-<li>Patch iBEC: <code>iBoot64Patcher iBEC.raw iBEC.prepatched</code>
-<em>If your interested in how those patches work, reading source code of <a href="https://github.com/tihmstar/iBoot64Patcher/blob/master/iBoot64Patcher/main.cpp">iBoot64patcher</a> and <a href="https://github.com/tihmstar/liboffsetfinder64/blob/master/liboffsetfinder64/ibootpatchfinder64.cpp">liboffsetfinder64</a> is definetly worth your time</em></li>
-</ul>
-<p>Now and later you will need SHSH ticket, let's save it:</p>
-<ul>
-<li>Saving SHSH ticket : <code>./tsschecker -d iPhone6,2 -e youreicd -m BuildManifest_iPhone6,2_1033_OTA.plist -s</code>
-<code>mv *.shsh ./ticket.shsh</code></li>
-</ul>
-<p>Now we will have to repack it back to img4:
-<em>If you want to know more about those formats, again go watch Tihmstar's talk, or if you don't have 50 minutes, just read <a href="https://www.theiphonewiki.com/wiki/IMG4_File_Format">artice</a> on theiphonewiki</em></p>
-<ul>
-<li>Creating iBSS im4p with type ibss: <code>img4tool -c iBSS.im4p -t ibss iBSS.prepatched</code></li>
-<li>Creating iBEC im4p with type ibec: <code>img4tool -c iBEC.im4p -t ibec iBEC.prepatched</code></li>
-<li>Creating iBSS img4 and using ticket as IM4M: <code>img4tool -c iBSS.img4 -p iBSS.im4p -s &quot;ticket.shsh&quot;</code></li>
-<li>Creating iBEC img4 and using ticket as IM4M:<code>img4tool -c iBEC.img4 -p iBEC.im4p -s &quot;ticket.shsh&quot;</code></li>
-</ul>
-<p>Replace original iBSS and iBEC indide unpacked IPSW folder:</p>
-<ul>
-<li>Replacing iBSS: <code>cp -v iBSS.img4 ../iPhone_4.0_64bit_10.1.1_14B100_Restore/Firmware/dfu/iBSS.n53.RELEASE.im4p</code></li>
-<li>Replacing iBEC: <code>cp -v iBEC.img4 ../iPhone_4.0_64bit_10.1.1_14B100_Restore/Firmware/dfu/iBEC.n53.RELEASE.im4p</code></li>
-</ul>
-<h2><a class="header" href="#huge-thanks-to" id="huge-thanks-to">Huge thank's to:</a></h2>
-<ul>
-<li>@exploit3dguy for helping me figure out issues whenever I was stuck</li>
-<li>@benfxmth and @rA9_baris for your hints</li>
-<li>@axi0mx for checkm8 exploit </li>
-<li>@LinusHenze for ipwndfu fork </li>
-<li>@nyan_satan for original 32 bit guide and fixkeybag </li>
-<li>@tihmstar for iBoot64Patcher, liboffsetfinder64, futurerestore and ra1nsn0w</li>
-<li>@xerub for img4lib </li>
-<li>@Ralph0045 and @mcg29_ for their dualboot guide</li>
-<li>@mosk_i for his fork of futurerestore and ra1nsn0w</li>
+<li>Create raw image from png: <code>./ibootim logo.png logo.raw</code></li>
+<li>Create im4p with type logo and give it some description - I gave it the same as original: <code>img4tool -c applelogo.im4p -t logo -d &quot;EmbeddedImages-73.220.6&quot; logo.raw</code></li>
+<li>Create img4 with previously created im4p and  as im4m use your fake blob: <code>img4tool -p applelogo.im4p -c img.img4 -s ticker.shsh2</code></li>
+<li>Send it to device: <code>irecovery -f img.4</code></li>
+<li>Set it: <code>irecovery -c &quot;setpicture 1&quot;</code></li>
 </ul>
 
                     </main>
@@ -200,11 +163,11 @@ In short, what we are interested in is: Bootrom -&gt; iBSS  -&gt; iBEC -&gt; Ker
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-
-                        
-                            <a rel="next" href="chapter_2.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
+                            <a rel="prev" href="chapter_4.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
                             </a>
+                        
+
                         
 
                         <div style="clear: both"></div>
@@ -214,11 +177,11 @@ In short, what we are interested in is: Bootrom -&gt; iBSS  -&gt; iBEC -&gt; Ker
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-
-                
-                    <a rel="next" href="chapter_2.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
+                    <a rel="prev" href="chapter_4.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
                     </a>
+                
+
                 
             </nav>
 
